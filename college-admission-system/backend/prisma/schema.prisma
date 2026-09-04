@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum ApplicationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  WAITLISTED
+}
+
+enum DocumentType {
+  TRANSCRIPT
+  ID_PROOF
+  PHOTO
+  RECOMMENDATION_LETTER
+  OTHER
+}
+
+enum DocumentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+}
+
+enum NotificationType {
+  APPLICATION_STATUS_CHANGE
+  DOCUMENT_REVIEWED
+  GENERAL
+}
+
+model User {
+  id                      String                     @id @default(uuid())
+  email                   String                     @unique
+  passwordHash            String                     @map("password_hash")
+  role                    Role                       @default(STUDENT)
+  isEmailVerified         Boolean                    @default(false) @map("is_email_verified")
+  createdAt               DateTime                   @default(now()) @map("created_at")
+  updatedAt               DateTime                   @updatedAt @map("updated_at")
+
+  studentProfile          StudentProfile?
+  refreshTokens           RefreshToken[]
+  emailVerificationTokens EmailVerificationToken[]
+  passwordResetTokens     PasswordResetToken[]
+  statusChangesMade       ApplicationStatusHistory[] @relation("ChangedBy")
+  documentsReviewed       Document[]                 @relation("DocumentReviewedBy")
+  notifications           Notification[]
+
+  @@map("users")
+}
+
+model StudentProfile {
+  id           String        @id @default(uuid())
+  userId       String        @unique @map("user_id")
+  firstName    String        @map("first_name")
+  lastName     String        @map("last_name")
+  phone        String?
+  dateOfBirth  DateTime?     @map("date_of_birth") @db.Date
+  address      String?
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  applications Application[]
+
+  @@map("student_profiles")
+}
+
+model Program {
+  id                  String        @id @default(uuid())
+  name                String
+  department          String
+  description         String?
+  duration            String?
+  fees                Decimal?      @db.Decimal(10, 2)
+  applicationDeadline DateTime?     @map("application_deadline")
+  seatsAvailable      Int           @default(0) @map("seats_available")
+  isActive            Boolean       @default(true) @map("is_active")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @updatedAt @map("updated_at")
+
+  applications        Application[]
+
+  @@index([isActive])
+  @@map("programs")
+}
+
+model Application {
+  id            String                     @id @default(uuid())
+  studentId     String                     @map("student_id")
+  programId     String                     @map("program_id")
+  status        ApplicationStatus          @default(DRAFT)
+  submittedAt   DateTime?                  @map("submitted_at")
+  decisionAt    DateTime?                  @map("decision_at")
+  decisionNote  String?                    @map("decision_note")
+  createdAt     DateTime                   @default(now()) @map("created_at")
+  updatedAt     DateTime                   @updatedAt @map("updated_at")
+
+  student       StudentProfile             @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  program       Program                    @relation(fields: [programId], references: [id])
+  documents     Document[]
+  statusHistory ApplicationStatusHistory[]
+  notifications Notification[]
+
+  @@unique([studentId, programId])
+  @@index([status])
+  @@map("applications")
+}
+
+model Document {
+  id                 String         @id @default(uuid())
+  applicationId      String         @map("application_id")
+  type               DocumentType
+  cloudinaryPublicId String         @map("cloudinary_public_id")
+  secureUrl          String         @map("secure_url")
+  fileName           String         @map("file_name")
+  fileSizeBytes      Int?           @map("file_size_bytes")
+  status             DocumentStatus @default(PENDING)
+  reviewNote         String?        @map("review_note")
+  reviewedAt         DateTime?      @map("reviewed_at")
+  reviewedById       String?        @map("reviewed_by_id")
+  uploadedAt         DateTime       @default(now()) @map("uploaded_at")
+
+  application        Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  reviewedBy         User?          @relation("DocumentReviewedBy", fields: [reviewedById], references: [id])
+
+  @@index([applicationId])
+  @@index([status])
+  @@map("documents")
+}
+
+model ApplicationStatusHistory {
+  id              String             @id @default(uuid())
+  applicationId   String             @map("application_id")
+  fromStatus      ApplicationStatus? @map("from_status")
+  toStatus        ApplicationStatus  @map("to_status")
+  changedByUserId String             @map("changed_by_user_id")
+  note            String?
+  createdAt       DateTime           @default(now()) @map("created_at")
+
+  application     Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  changedBy       User               @relation("ChangedBy", fields: [changedByUserId], references: [id])
+
+  @@index([applicationId])
+  @@map("application_status_history")
+}
+
+model Notification {
+  id                   String           @id @default(uuid())
+  userId               String           @map("user_id")
+  type                 NotificationType
+  title                String
+  message              String
+  relatedApplicationId String?          @map("related_application_id")
+  isRead               Boolean          @default(false) @map("is_read")
+  createdAt            DateTime         @default(now()) @map("created_at")
+
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relatedApplication   Application?     @relation(fields: [relatedApplicationId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
