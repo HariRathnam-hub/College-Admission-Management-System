@@ -121,6 +121,7 @@ CREATE TABLE "notifications" (
 -- CreateTable
 CREATE TABLE "refresh_tokens" (
     "id" TEXT NOT NULL,
+    "jti" TEXT NOT NULL,
     "user_id" TEXT NOT NULL,
     "token_hash" TEXT NOT NULL,
     "expires_at" TIMESTAMP(3) NOT NULL,
@@ -167,6 +168,12 @@ CREATE INDEX "programs_is_active_idx" ON "programs"("is_active");
 CREATE INDEX "applications_status_idx" ON "applications"("status");
 
 -- CreateIndex
+CREATE INDEX "applications_student_id_idx" ON "applications"("student_id");
+
+-- CreateIndex
+CREATE INDEX "applications_program_id_idx" ON "applications"("program_id");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "applications_student_id_program_id_key" ON "applications"("student_id", "program_id");
 
 -- CreateIndex
@@ -182,10 +189,16 @@ CREATE INDEX "application_status_history_application_id_idx" ON "application_sta
 CREATE INDEX "notifications_user_id_is_read_idx" ON "notifications"("user_id", "is_read");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "refresh_tokens_jti_key" ON "refresh_tokens"("jti");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "refresh_tokens_token_hash_key" ON "refresh_tokens"("token_hash");
 
 -- CreateIndex
 CREATE INDEX "refresh_tokens_user_id_idx" ON "refresh_tokens"("user_id");
+
+-- CreateIndex
+CREATE INDEX "refresh_tokens_expires_at_idx" ON "refresh_tokens"("expires_at");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "email_verification_tokens_token_hash_key" ON "email_verification_tokens"("token_hash");

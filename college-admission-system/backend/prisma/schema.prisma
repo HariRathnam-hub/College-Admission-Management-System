@@ -110,12 +110,14 @@ model Application {
   updatedAt     DateTime                   @updatedAt @map("updated_at")
 
   student       StudentProfile             @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  program       Program                    @relation(fields: [programId], references: [id])
+  program       Program                    @relation(fields: [programId], references: [id], onDelete: Restrict)
   documents     Document[]
   statusHistory ApplicationStatusHistory[]
   notifications Notification[]
 
   @@unique([studentId, programId])
+  @@index([studentId])
+  @@index([programId])
   @@index([status])
   @@map("applications")
 }
@@ -135,7 +137,7 @@ model Document {
   uploadedAt         DateTime       @default(now()) @map("uploaded_at")
 
   application        Application    @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  reviewedBy         User?          @relation("DocumentReviewedBy", fields: [reviewedById], references: [id])
+  reviewedBy         User?          @relation("DocumentReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
 
   @@index([applicationId])
   @@index([status])
@@ -152,7 +154,7 @@ model ApplicationStatusHistory {
   createdAt       DateTime           @default(now()) @map("created_at")
 
   application     Application        @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  changedBy       User               @relation("ChangedBy", fields: [changedByUserId], references: [id])
+  changedBy       User               @relation("ChangedBy", fields: [changedByUserId], references: [id], onDelete: Restrict)
 
   @@index([applicationId])
   @@map("application_status_history")
@@ -177,6 +179,7 @@ model Notification {
 
 model RefreshToken {
   id        String    @id @default(uuid())
+  jti       String    @unique
   userId    String    @map("user_id")
   tokenHash String    @unique @map("token_hash")
   expiresAt DateTime  @map("expires_at")
@@ -186,6 +189,7 @@ model RefreshToken {
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([expiresAt])
   @@map("refresh_tokens")
 }
 
