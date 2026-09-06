@@ -29,3 +29,33 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
     throw new AppError("Invalid or expired access token", 401);
   }
 }
+
+/**
+ * Added in Phase 4 for routes that are usable both anonymously and
+ * authenticated, with behavior that only *changes* based on who's calling
+ * (e.g. GET /programs: everyone can browse, but an authenticated ADMIN also
+ * sees inactive programs). Unlike authMiddleware, a missing or invalid token
+ * here is not an error — the request just proceeds as anonymous.
+ *
+ * Do NOT use this on routes that need to know the caller's identity for
+ * authorization decisions — use authMiddleware for those.
+ */
+export function optionalAuthMiddleware(req: Request, _res: Response, next: NextFunction): void {
+  const header = req.headers.authorization;
+
+  if (!header || !header.startsWith("Bearer ")) {
+    return next();
+  }
+
+  const token = header.slice("Bearer ".length).trim();
+
+  try {
+    const payload = verifyAccessToken(token);
+    req.user = { id: payload.sub, role: payload.role };
+  } catch {
+    // Invalid/expired token on an optional-auth route: treat the caller as
+    // anonymous rather than failing the request.
+  }
+
+  next();
+}

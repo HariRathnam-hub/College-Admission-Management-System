@@ -95,6 +95,7 @@ model Program {
   applications        Application[]
 
   @@index([isActive])
+  @@index([department])
   @@map("programs")
 }
 
@@ -119,6 +120,7 @@ model Application {
   @@index([studentId])
   @@index([programId])
   @@index([status])
+  @@index([createdAt])
   @@map("applications")
 }
 
